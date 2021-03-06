@@ -2,8 +2,7 @@
   "compilerOptions": {
     "allowJs": false,
     "target": "es5",
-    "lib": ["es2015"],
-    "module": "esnext",
+    "module": "commonjs",
     "outDir": "./build",
     "rootDir": "./src",
     "strict": true,
