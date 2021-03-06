@@ -1,12 +1,11 @@
-export const handler = async (event: any, context: any) => {
-  // const queryString = event.queryStringParameters;
-  // const query = JSON.stringify(queryString);
-  const strEvent = JSON.stringify(event);
-  const strContext = JSON.stringify(context);
+export const handler = async (event: any) => {
+  const path = event.path;
+  const queryString = event.queryStringParameters;
+
+  const query = JSON.stringify(queryString);
 
   return {
     statusCode: 200,
-    // body: `Hello world!\nquery is ${query}`,
-    body: `${strEvent} ${strContext}`,
+    body: `Hello world!\npath is ${path}\nquery is ${query}`,
   };
 };
