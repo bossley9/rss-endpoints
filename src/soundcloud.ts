@@ -1,6 +1,6 @@
 export const handler = async (event: any, context: any) => {
   const queryString = event.queryStringParameters;
-  const query = JSON.Stringify(queryString);
+  const query = JSON.stringify(queryString);
 
   return {
     statusCode: 200,
