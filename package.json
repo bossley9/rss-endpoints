@@ -1,38 +1,25 @@
 {
   "name": "rss-endpoints",
-  "version": "0.1.0",
-  "private": true,
-  "dependencies": {
-    "@testing-library/jest-dom": "^5.11.9",
-    "@testing-library/react": "^11.2.5",
-    "@testing-library/user-event": "^12.8.1",
-    "react": "^17.0.1",
-    "react-dom": "^17.0.1",
-    "react-scripts": "4.0.3",
-    "web-vitals": "^1.1.0"
-  },
+  "version": "1.0.0",
+  "description": "",
   "scripts": {
-    "start": "BROWSER=none react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "build": "tsc",
+    "test": "jest --coverage"
   },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bossley9/rss-endpoints.git"
   },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+  "author": "Sam Bossley",
+  "license": "BSD 2-Clause",
+  "bugs": {
+    "url": "https://github.com/bossley9/rss-endpoints/issues"
+  },
+  "homepage": "https://github.com/bossley9/rss-endpoints#readme",
+  "devDependencies": {
+    "@types/jest": "^26.0.20",
+    "jest": "^26.6.3",
+    "ts-jest": "^26.5.3",
+    "typescript": "^4.2.3"
   }
 }
