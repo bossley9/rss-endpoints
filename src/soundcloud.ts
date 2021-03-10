@@ -1,4 +1,7 @@
 import fetch from "isomorphic-fetch";
+// client id extracted from youtube-dl extractor, line 312
+// https://github.com/ytdl-org/youtube-dl/blob/master/youtube_dl/extractor/soundcloud.py
+// const CLIENT_ID = "YUKXoArFcqrlQn9tfNHvvyfnDISj04zk";
 
 export const handler = async (event: any) => {
   const { path } = event;
@@ -10,6 +13,13 @@ export const handler = async (event: any) => {
   const indicatorLength = pathIndicator.length;
 
   const user = path.substring(indicatorIndex + indicatorLength + 1);
+
+  if (!user) {
+    return {
+      statusCode,
+      body: "USAGE: /user -> user's rss track feed",
+    };
+  }
 
   let userid = "";
 
