@@ -1,19 +1,19 @@
-// @ts-ignore
 import fetch from "isomorphic-fetch";
 import { JSDOM } from "jsdom";
-import { GetUrlPathStub } from "../util/core";
-import { Feed, GenerateFeed } from "../util/feed";
+import { ENDPOINT_BASE_URL, GetUrlPathStub } from "../util/core";
+import { Feed, FeedItem, GenerateFeed } from "../util/feed";
 
 type Event = {
   path: string;
 };
+
+const SOURCE_BASE_URL = "https://soundcloud.com";
 
 export const handler = async (event: Event) => {
   const { path } = event;
   let statusCode = 200;
   let body = "";
 
-  // user
   const user = GetUrlPathStub(path, "soundcloud");
   if (!user) {
     return {
@@ -22,13 +22,13 @@ export const handler = async (event: Event) => {
     };
   }
 
-  // url
-  const url = `https://soundcloud.com/${user}/tracks`;
+  const url = `${SOURCE_BASE_URL}/${user}/tracks`;
 
   const feed: Feed = {
     title: `${user}`,
     desc: `${user}'s soundcloud tracks`,
     source: url,
+    endpoint: `${ENDPOINT_BASE_URL}${path}`,
     items: [],
   };
 
@@ -68,15 +68,29 @@ export const handler = async (event: Event) => {
 
         if (aHTMLArr && aHTMLArr[0]) {
           title = aHTMLArr[0].innerHTML;
-          href = aHTMLArr[0].href;
+          href = `${SOURCE_BASE_URL}${aHTMLArr[0].href}`;
         }
       }
 
       const dateHTML = track.querySelector("time");
       if (dateHTML) date = dateHTML.innerHTML;
 
-      // TODO replace with feed items
-      body += `{ href: ${href}, title: ${title}, date: ${date} }`;
+      const tags: string[] = [];
+
+      const metaGenreHTMLArr = track.querySelectorAll("meta[itemprop=genre]");
+      metaGenreHTMLArr.forEach((metaGenreHTML: Element) => {
+        const genreContent = metaGenreHTML.attributes.getNamedItem("content");
+        if (genreContent) tags.push(genreContent.value);
+      });
+
+      const item: FeedItem = {
+        title,
+        date,
+        href,
+        tags,
+      };
+
+      feed.items.push(item);
     });
   }
 
