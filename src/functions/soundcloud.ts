@@ -1,7 +1,7 @@
 // @ts-ignore
 import fetch from "isomorphic-fetch";
-import { GetUrlPathStub } from "../utilities/rss-utils";
-// import { JSDOM } from "jsdom";
+import { JSDOM } from "jsdom";
+import { GetUrlPathStub } from "../util/core";
 
 type Event = {
   path: string;
@@ -21,62 +21,41 @@ export const handler = async (event: Event) => {
     };
   }
 
-  // try {
-  //   const url = `http://soundcloud.com/${user}`;
-  //   const res = await fetch(url, {});
-  //   const raw = await res.text();
-  //   // const { document } = new JSDOM(``, {
-  //   //   url,
-  //   //   //   referrer: "https://example.com/",
-  //   //   contentType: "text/html",
-  //   //   //   includeNodeLocations: true,
-  //   //   //   storageQuota: 10000000,
-  //   // }).window;
-
-  //   const { document } = new JSDOM(raw).window;
-
-  //   const section = document.querySelector("section");
-
-  //   if (section) {
-  //     const tracks = section.querySelectorAll("article");
-
-  //     tracks.forEach((track: HTMLElement) => {
-  //       let title = "";
-  //       let href = "";
-  //       // body += track.innerHTML;
-  //     });
-
-  //   }
-
-  // } catch (e) {
-  //   statusCode = 500;
-  //   body = `ERROR: ${e}`;
-  // }
-
-  let userid = "";
-
   try {
-    const url = `http://soundcloud.com/${user}`;
+    const url = `https://soundcloud.com/${user}/tracks`;
+
     const res = await fetch(url, {});
     const raw = await res.text();
 
-    const key: string = "api.soundcloud.com/users/";
+    const { document } = new JSDOM(raw).window;
 
-    // trim start and end to get id
-    userid = raw;
-    // @ts-ignore
-    userid = userid.substring(userid.indexOf(key) + key.length);
-    // @ts-ignore
-    userid = userid.substring(0, userid.indexOf('"'));
-  } catch (e) {
-    statusCode = 500;
-    body = `ERROR: ${e}`;
-  }
+    const section = document.querySelector("section");
 
-  try {
-    const url = `https://feeds.soundcloud.com/users/soundcloud:users:${userid}/sounds.rss`;
-    const res = await fetch(url, {});
-    body = await res.text();
+    if (section) {
+      const tracks = section.querySelectorAll("article");
+
+      tracks.forEach((track: HTMLElement) => {
+        const h2HTML = track.querySelector("h2");
+
+        let date = "";
+        let href = "";
+        let title = "";
+
+        if (h2HTML) {
+          const aHTMLArr = h2HTML.querySelectorAll("a");
+
+          if (aHTMLArr && aHTMLArr[0]) {
+            title = aHTMLArr[0].innerHTML;
+            href = aHTMLArr[0].href;
+          }
+        }
+
+        const dateHTML = track.querySelector("time");
+        if (dateHTML) date = dateHTML.innerHTML;
+
+        body += `{ href: ${href}, title: ${title}, date: ${date} }`;
+      });
+    }
   } catch (e) {
     statusCode = 500;
     body = `ERROR: ${e}`;
