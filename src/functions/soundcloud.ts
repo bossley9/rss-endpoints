@@ -1,9 +1,7 @@
 // @ts-ignore
 import fetch from "isomorphic-fetch";
+import { GetUrlPathStub } from "../utilities/rss-utils";
 // import { JSDOM } from "jsdom";
-// client id extracted from youtube-dl extractor, line 312
-// https://github.com/ytdl-org/youtube-dl/blob/master/youtube_dl/extractor/soundcloud.py
-// const CLIENT_ID = "YUKXoArFcqrlQn9tfNHvvyfnDISj04zk";
 
 type Event = {
   path: string;
@@ -14,14 +12,7 @@ export const handler = async (event: Event) => {
   let statusCode = 200;
   let body = "";
 
-  const pathIndicator: string = "soundcloud";
-  // @ts-ignore
-  const indicatorIndex = path.indexOf(pathIndicator);
-  // @ts-ignore
-  const indicatorLength = pathIndicator.length;
-
-  // @ts-ignore
-  const user = path.substring(indicatorIndex + indicatorLength + 1);
+  const user = GetUrlPathStub(path, "soundcloud");
 
   if (!user) {
     return {

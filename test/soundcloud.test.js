@@ -1,10 +1,10 @@
-const soundcloud = require("../src/soundcloud");
+const soundcloud = require("../src/functions/soundcloud");
 const { handler } = soundcloud;
 
 describe("soundcloud", () => {
   // routine
   it("produces the expected output format", async () => {
-    const user = `postmalone`;
+    const user = "postmalone";
     const event = {
       path: `/.netlify/functions/soundcloud/${user}`,
       queryStringParameters: {},
