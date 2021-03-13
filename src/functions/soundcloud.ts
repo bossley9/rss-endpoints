@@ -11,6 +11,9 @@ type SCTrack = {
   permalink_url: string;
   tag_list: string;
   title: string;
+  user: {
+    username: string;
+  };
 };
 
 type SCResponse = {
@@ -160,15 +163,19 @@ export const handler = async (event: Event) => {
   // this manual for loop ensures type consistency
   for (let i = 0; i < data.collection.length; i++) {
     const track = data.collection[i];
+
+    const desc = `<![CDATA[
+      <h3>${track.title} by ${track.user.username}</h3>
+      <img src="${track.artwork_url}" alt="${track.title}" />
+      <p>Genre: ${track.genre}</p>
+      <p>${track.description}</p>
+    ]]>`;
+
     const item: FeedItem = {
       title: track.title,
       date: track.created_at,
       href: track.permalink_url,
-      desc: `
-        track art: ${track.artwork_url}
-        genre: ${track.genre}
-        ${track.description}
-        `,
+      desc,
       tags: track.tag_list.replace(/"/g, "").split(" "),
     };
 
