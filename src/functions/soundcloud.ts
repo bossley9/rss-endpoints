@@ -3,6 +3,20 @@ import { JSDOM } from "jsdom";
 import { ENDPOINT_BASE_URL, GetUrlPathStub } from "../util/core";
 import { Feed, FeedItem, GenerateFeed } from "../util/feed";
 
+type SCTrack = {
+  artwork_url: string;
+  created_at: string;
+  description: string;
+  genre: string;
+  permalink_url: string;
+  tag_list: string;
+  title: string;
+};
+
+type SCResponse = {
+  collection: SCTrack[];
+};
+
 type Event = {
   path: string;
 };
@@ -42,56 +56,123 @@ export const handler = async (event: Event) => {
   }
 
   if (!html) {
-    statusCode = 500;
-    body = `ERROR: url returned an empty response`;
     return {
-      statusCode,
-      body,
+      statusCode: 500,
+      body: "ERROR: url returned an empty response",
     };
   }
 
   const { document } = new JSDOM(html).window;
 
-  const section = document.querySelector("section");
-  if (section) {
-    const tracks = section.querySelectorAll("article");
+  // get user id
 
-    tracks.forEach((track: HTMLElement) => {
-      const h2HTML = track.querySelector("h2");
+  let userId = "";
+  const userIdMeta = document.querySelector("meta[property='al:ios:url']");
+  if (userIdMeta) {
+    const content = userIdMeta.attributes.getNamedItem("content");
+    if (content) {
+      const rawUserId = content.value;
+      // format is soundcloud://users:USER_ID
+      userId = rawUserId.substring(rawUserId.lastIndexOf(":") + 1);
+    }
+  }
 
-      let date = "";
-      let href = "";
-      let title = "";
+  if (!userId) {
+    return {
+      statusCode: 500,
+      body: "ERROR: user id retrieval is not valid",
+    };
+  }
 
-      if (h2HTML) {
-        const aHTMLArr = h2HTML.querySelectorAll("a");
+  // get client id source
 
-        if (aHTMLArr && aHTMLArr[0]) {
-          title = aHTMLArr[0].innerHTML;
-          href = `${SOURCE_BASE_URL}${aHTMLArr[0].href}`;
-        }
-      }
+  let clientSource = "";
+  const scripts = document.querySelectorAll("script[crossorigin]");
+  // reliant on the fact that the last crossorigin script contains the client id
+  const clientIdScript = scripts[scripts.length - 1];
+  const clientIdSrc = clientIdScript.attributes.getNamedItem("src");
+  if (clientIdSrc) clientSource = clientIdSrc.value;
 
-      const dateHTML = track.querySelector("time");
-      if (dateHTML) date = dateHTML.innerHTML;
+  if (!clientSource) {
+    return {
+      statusCode: 500,
+      body: "ERROR: client id retrieval is not valid",
+    };
+  }
 
-      const tags: string[] = [];
+  let clientjs = "";
+  try {
+    const res = await fetch(clientSource, {});
+    clientjs = await res.text();
+  } catch (e) {
+    statusCode = 500;
+    body = `ERROR: ${e}`;
+  }
 
-      const metaGenreHTMLArr = track.querySelectorAll("meta[itemprop=genre]");
-      metaGenreHTMLArr.forEach((metaGenreHTML: Element) => {
-        const genreContent = metaGenreHTML.attributes.getNamedItem("content");
-        if (genreContent) tags.push(genreContent.value);
-      });
+  if (!clientjs) {
+    return {
+      statusCode: 500,
+      body: "ERROR: client id source url returned an empty response",
+    };
+  }
 
-      const item: FeedItem = {
-        title,
-        date,
-        href,
-        tags,
-      };
+  // get client id
 
-      feed.items.push(item);
-    });
+  let clientId = "";
+  const clientIdKey: string = "client_id";
+  const clientIdKeyIndex = clientjs.indexOf(clientIdKey);
+  let clientIdRaw = clientjs.substring(clientIdKeyIndex + clientIdKey.length);
+
+  const quote: string = '"';
+  clientIdRaw = clientIdRaw.substring(clientIdRaw.indexOf(quote) + 1);
+  clientIdRaw = clientIdRaw.substring(0, clientIdRaw.indexOf(quote));
+  clientId = clientIdRaw;
+
+  if (!clientId) {
+    return {
+      statusCode: 500,
+      body: "ERROR: client id is invalid",
+    };
+  }
+
+  // get api endpoint json data
+
+  let dataRaw = "";
+  const dataUrl = `https://api-v2.soundcloud.com/users/${userId}/tracks?representation=&offset=&limit=30&client_id=${clientId}`;
+  try {
+    const res = await fetch(dataUrl, {});
+    dataRaw = await res.text();
+  } catch (e) {
+    statusCode = 500;
+    body = `ERROR: ${e}`;
+  }
+
+  if (!dataRaw) {
+    return {
+      statusCode: 500,
+      body: "ERROR: api data url returned an empty response",
+    };
+  }
+
+  const data: SCResponse = JSON.parse(dataRaw);
+
+  // Tyepscript thinks for (x in ...) loops return string items
+  // this manual for loop ensures type consistency
+  for (let i = 0; i < data.collection.length; i++) {
+    const track = data.collection[i];
+    const item: FeedItem = {
+      title: track.title,
+      date: track.created_at,
+      href: track.permalink_url,
+      desc: `
+        track art: ${track.artwork_url}
+        genre: ${track.genre}
+        ${track.description}
+        `,
+      tags: track.tag_list.replace(/"/g, "").split(" "),
+    };
+
+    feed.items.push(item);
   }
 
   body = GenerateFeed(feed);
