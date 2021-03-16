@@ -2,6 +2,7 @@ export const ENDPOINT_BASE_URL = "https://rss-endpoints.netlify.app";
 
 export type Event = {
   path: string;
+  queryStringParameters: { [key: string]: string };
 };
 
 export type Handler = (event: Event, context?: {}) => void;
