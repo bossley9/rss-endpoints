@@ -1,6 +1,6 @@
 import fetch from "isomorphic-fetch";
 import { JSDOM } from "jsdom";
-import { ENDPOINT_BASE_URL, GetUrlPathStub } from "../util/core";
+import { Handler, ENDPOINT_BASE_URL, GetUrlPathStub } from "../util/core";
 import { Feed, FeedItem, GenerateFeed } from "../util/feed";
 
 type SCTrack = {
@@ -20,13 +20,9 @@ type SCResponse = {
   collection: SCTrack[];
 };
 
-type Event = {
-  path: string;
-};
-
 const SOURCE_BASE_URL = "https://soundcloud.com";
 
-export const handler = async (event: Event) => {
+export const handler: Handler = async (event) => {
   const { path } = event;
   let statusCode = 200;
   let body = "";
