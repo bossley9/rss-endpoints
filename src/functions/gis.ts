@@ -3,6 +3,13 @@ import { JSDOM } from "jsdom";
 import { Handler } from "../util/core";
 import { Feed, FeedItem, GenerateFeed } from "../util/feed";
 
+type ArticleMeta = {
+  date: string;
+  href: string;
+  issue: string;
+  issueNo: number;
+};
+
 export const handler: Handler = async () => {
   let statusCode = 200;
   let body = "";
@@ -80,6 +87,7 @@ export const handler: Handler = async () => {
   });
 
   const promisedArticles: Promise<string>[] = [];
+  const articleMetas: ArticleMeta[] = [];
 
   try {
     const issueHtmlArr = await Promise.all(promisedIssues);
@@ -90,6 +98,24 @@ export const handler: Handler = async () => {
       let articleHtmlArr = issueDocument.querySelectorAll(
         ".entry-content .wp-block-jetpack-layout-grid-column"
       );
+
+      let issue = "";
+      let issueTitleHtml = issueDocument.querySelector("#content .entry-title");
+      if (issueTitleHtml) {
+        const { firstChild, innerHTML } = issueTitleHtml;
+        // occasionally encased in <i> or <strong> tags
+        issue = firstChild ? (firstChild as Element).innerHTML : innerHTML;
+      }
+
+      let date = "";
+      let issueDateHtml = issueDocument.querySelectorAll(
+        "#content .entry-content *"
+      );
+      if (issueDateHtml[0]) {
+        const { firstChild, innerHTML } = issueDateHtml[0];
+        // ditto
+        date = firstChild ? (firstChild as Element).innerHTML : innerHTML;
+      }
 
       articleHtmlArr.forEach((articleHtml: Element) => {
         const articleAnchor = articleHtml.querySelector("a");
@@ -112,7 +138,21 @@ export const handler: Handler = async () => {
               }
             );
 
+            // remove base url, slash, "issue", and dash
+            let hrefEnd = href.substring(
+              issueUrl.length + 1 + "issue".length + 1
+            );
+            let issueNoRaw = hrefEnd.substring(0, hrefEnd.indexOf("/"));
+
+            let issueNo = parseInt(issueNoRaw);
+
             promisedArticles.push(articlePromise);
+            articleMetas.push({
+              date,
+              href,
+              issue,
+              issueNo,
+            });
           }
         }
       });
@@ -126,24 +166,41 @@ export const handler: Handler = async () => {
     const articleHtmlArr = await Promise.all(promisedArticles);
     for (let i = 0; i < articleHtmlArr.length; i++) {
       const articleHtml = articleHtmlArr[i];
-      body += `article is ${articleHtml}\n`;
+      const { date, href, issue, issueNo } = articleMetas[i];
+      const { document: articleDocument } = new JSDOM(articleHtml).window;
 
-      // const item: FeedItem = {
-      //   title: "",
-      //   date: "",
-      //   href,
-      //   desc: "",
-      //   tags: [],
-      // };
+      let subtitle = "";
+      let articleTitleHtml = articleDocument.querySelector(
+        "#content .entry-title"
+      );
+      if (articleTitleHtml) {
+        const { firstChild, innerHTML } = articleTitleHtml;
+        // ditto
+        subtitle = firstChild ? (firstChild as Element).innerHTML : innerHTML;
+      }
 
-      // feed.items.push(item);
+      const title = `Issue ${issueNo}: ${issue} - ${subtitle}`;
+
+      const content = articleDocument.querySelector("#content");
+      if (content) {
+        const item: FeedItem = {
+          title,
+          date,
+          href,
+          //   desc: "",
+          //   tags: [],
+          content: content.innerHTML,
+        };
+
+        feed.items.push(item);
+      }
     }
   } catch (e) {
     statusCode = 500;
     body = `ERROR: ${e}`;
   }
 
-  // body = GenerateFeed(feed);
+  body = GenerateFeed(feed);
 
   return {
     statusCode,
