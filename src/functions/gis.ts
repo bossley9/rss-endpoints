@@ -16,23 +16,23 @@ export const handler: Handler = async () => {
     items: [],
   };
 
-  const feedUrl = `${SOURCE_BASE_URL}/feed`;
+  // const feedUrl = `${SOURCE_BASE_URL}/feed`;
 
-  let rss = "";
-  try {
-    const res = await fetch(feedUrl, {});
-    rss = await res.text();
-  } catch (e) {
-    statusCode = 500;
-    body = `ERROR: ${e}`;
-  }
+  //   let rss = "";
+  //   try {
+  //     const res = await fetch(feedUrl, {});
+  //     rss = await res.text();
+  //   } catch (e) {
+  //     statusCode = 500;
+  //     body = `ERROR: ${e}`;
+  //   }
 
-  if (!rss) {
-    return {
-      statusCode,
-      body: "ERROR: feed url returned an empty response",
-    };
-  }
+  //   if (!rss) {
+  //     return {
+  //       statusCode,
+  //       body: "ERROR: feed url returned an empty response",
+  //     };
+  //   }
 
   const issueUrl = `${SOURCE_BASE_URL}/issues`;
 
@@ -47,36 +47,103 @@ export const handler: Handler = async () => {
 
   const { document } = new JSDOM(issueHtml).window;
 
-  let issueHtmlArr = document.querySelectorAll(".entry-content figure");
+  // restrict the number of issues due to api overload
+  const MAX_NUM_ISSUES = 10;
+
+  let issueHtmlArr = Array.from(
+    document.querySelectorAll(".entry-content figure")
+  ).slice(0, MAX_NUM_ISSUES);
+
+  const promisedIssues: Promise<string>[] = [];
 
   issueHtmlArr.forEach((issue: Element) => {
-    let href = "";
-
     const issueAnchor = issue.querySelector("a");
     if (issueAnchor) {
-      let potentialHref = issueAnchor.attributes.getNamedItem("href")?.value;
-      if (potentialHref) {
-        href = potentialHref;
+      let hrefAttr = issueAnchor.attributes.getNamedItem("href");
+      if (hrefAttr) {
+        const href = hrefAttr.value;
+        // fetch each issue simultaneously
+        let issuePromise = new Promise<string>(async (resolve, reject) => {
+          let issueHtml = "";
+          try {
+            const res = await fetch(href, {});
+            issueHtml = await res.text();
+            resolve(issueHtml);
+          } catch (e) {
+            reject(e);
+          }
+        });
+
+        promisedIssues.push(issuePromise);
       }
     }
-
-    // TODO
-    // if (href) {
-    //   each issue contains multiple articles
-    // }
-
-    const item: FeedItem = {
-      title: "",
-      date: "",
-      href,
-      desc: "",
-      tags: [],
-    };
-
-    feed.items.push(item);
   });
 
-  body = GenerateFeed(feed);
+  const promisedArticles: Promise<string>[] = [];
+
+  try {
+    const issueHtmlArr = await Promise.all(promisedIssues);
+    for (let i = 0; i < issueHtmlArr.length; i++) {
+      const issueHtml = issueHtmlArr[i];
+
+      const { document: issueDocument } = new JSDOM(issueHtml).window;
+      let articleHtmlArr = issueDocument.querySelectorAll(
+        ".entry-content .wp-block-jetpack-layout-grid-column"
+      );
+
+      articleHtmlArr.forEach((articleHtml: Element) => {
+        const articleAnchor = articleHtml.querySelector("a");
+        if (articleAnchor) {
+          let hrefAttr = articleAnchor.attributes.getNamedItem("href");
+          if (hrefAttr) {
+            const href = hrefAttr.value;
+            // fetch each issue simultaneously
+            let articlePromise = new Promise<string>(
+              async (resolve, reject) => {
+                let articleHtml = "";
+                try {
+                  const res = await fetch(href, {});
+                  articleHtml = await res.text();
+                  resolve(articleHtml);
+                  // resolve(`article is from ${href}!`);
+                } catch (e) {
+                  reject(e);
+                }
+              }
+            );
+
+            promisedArticles.push(articlePromise);
+          }
+        }
+      });
+    }
+  } catch (e) {
+    statusCode = 500;
+    body = `ERROR: ${e}`;
+  }
+
+  try {
+    const articleHtmlArr = await Promise.all(promisedArticles);
+    for (let i = 0; i < articleHtmlArr.length; i++) {
+      const articleHtml = articleHtmlArr[i];
+      body += `article is ${articleHtml}\n`;
+
+      // const item: FeedItem = {
+      //   title: "",
+      //   date: "",
+      //   href,
+      //   desc: "",
+      //   tags: [],
+      // };
+
+      // feed.items.push(item);
+    }
+  } catch (e) {
+    statusCode = 500;
+    body = `ERROR: ${e}`;
+  }
+
+  // body = GenerateFeed(feed);
 
   return {
     statusCode,

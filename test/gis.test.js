@@ -8,5 +8,5 @@ describe("gis", () => {
 
     expect(res.statusCode).toEqual(200);
     expect(typeof res.body).toBe("string");
-  });
+  }, 10000); // explicit delay due to sheer amount of async calls
 });
