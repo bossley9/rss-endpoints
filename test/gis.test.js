@@ -1,4 +1,4 @@
-const gis = require("../src/functions/gis");
+const gis = require("../src/functions/gis-background");
 const { handler } = gis;
 
 describe("gis", () => {
