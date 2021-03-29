@@ -3,13 +3,6 @@ import { JSDOM } from "jsdom";
 import { Handler } from "../util/core";
 import { Feed, FeedItem, GenerateFeed } from "../util/feed";
 
-type ArticleMeta = {
-  date: string;
-  href: string;
-  issue: string;
-  issueNo: number;
-};
-
 const getMonthDiff = (d1: Date, d2: Date) => {
   let months;
   months = (d2.getFullYear() - d1.getFullYear()) * 12;
@@ -59,9 +52,6 @@ export const handler: Handler = async () => {
     });
   });
 
-  const promisedArticles: Promise<string>[] = [];
-  const articleMetas: ArticleMeta[] = [];
-
   try {
     const issueHtmlArr = await Promise.all(promisedIssues);
     for (let i = 0; i < issueHtmlArr.length; i++) {
@@ -96,19 +86,6 @@ export const handler: Handler = async () => {
           let hrefAttr = articleAnchor.attributes.getNamedItem("href");
           if (hrefAttr) {
             const href = hrefAttr.value;
-            // fetch each issue simultaneously
-            let articlePromise = new Promise<string>(
-              async (resolve, reject) => {
-                let articleHtml = "";
-                try {
-                  const res = await fetch(href, {});
-                  articleHtml = await res.text();
-                  resolve(articleHtml);
-                } catch (e) {
-                  reject(e);
-                }
-              }
-            );
 
             // remove base url, slash, "issue", and dash
             let hrefEnd = href.substring(
@@ -118,54 +95,28 @@ export const handler: Handler = async () => {
 
             let issueNo = parseInt(issueNoRaw);
 
-            promisedArticles.push(articlePromise);
-            articleMetas.push({
+            let subtitle = "";
+            const subtitleElement = articleHtml.querySelector(
+              ".wp-block-cover__inner-container h3 em"
+            );
+            if (subtitleElement) {
+              subtitle = subtitleElement.innerHTML;
+            }
+
+            const title = `Issue ${issueNo}: ${issue}${
+              subtitle ? ` - ${subtitle}` : ""
+            }`;
+
+            const item: FeedItem = {
+              title,
               date,
               href,
-              issue,
-              issueNo,
-            });
+            };
+
+            feed.items.push(item);
           }
         }
       });
-    }
-  } catch (e) {
-    statusCode = 500;
-    body = `ERROR: ${e}`;
-  }
-
-  try {
-    const articleHtmlArr = await Promise.all(promisedArticles);
-    for (let i = 0; i < articleHtmlArr.length; i++) {
-      const articleHtml = articleHtmlArr[i];
-      const { date, href, issue, issueNo } = articleMetas[i];
-      const { document: articleDocument } = new JSDOM(articleHtml).window;
-
-      let subtitle = "";
-      let articleTitleHtml = articleDocument.querySelector(
-        "#content .entry-title"
-      );
-      if (articleTitleHtml) {
-        const { firstChild, innerHTML } = articleTitleHtml;
-        // ditto
-        subtitle = firstChild ? (firstChild as Element).innerHTML : innerHTML;
-      }
-
-      const title = `Issue ${issueNo}: ${issue} - ${subtitle}`;
-
-      const content = articleDocument.querySelector("#content");
-      if (content) {
-        const item: FeedItem = {
-          title,
-          date,
-          href,
-          //   desc: "",
-          //   tags: [],
-          content: content.innerHTML,
-        };
-
-        feed.items.push(item);
-      }
     }
   } catch (e) {
     statusCode = 500;
