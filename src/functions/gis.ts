@@ -10,6 +10,14 @@ type ArticleMeta = {
   issueNo: number;
 };
 
+const getMonthDiff = (d1: Date, d2: Date) => {
+  let months;
+  months = (d2.getFullYear() - d1.getFullYear()) * 12;
+  months -= d1.getMonth();
+  months += d2.getMonth();
+  return months <= 0 ? 0 : months;
+};
+
 export const handler: Handler = async () => {
   let statusCode = 200;
   let body = "";
@@ -23,67 +31,32 @@ export const handler: Handler = async () => {
     items: [],
   };
 
-  // const feedUrl = `${SOURCE_BASE_URL}/feed`;
-
-  //   let rss = "";
-  //   try {
-  //     const res = await fetch(feedUrl, {});
-  //     rss = await res.text();
-  //   } catch (e) {
-  //     statusCode = 500;
-  //     body = `ERROR: ${e}`;
-  //   }
-
-  //   if (!rss) {
-  //     return {
-  //       statusCode,
-  //       body: "ERROR: feed url returned an empty response",
-  //     };
-  //   }
-
   const issueUrl = `${SOURCE_BASE_URL}/issues`;
 
-  let issueHtml = "";
-  try {
-    const res = await fetch(issueUrl, {});
-    issueHtml = await res.text();
-  } catch (e) {
-    statusCode = 500;
-    body = `ERROR: ${e}`;
-  }
-
-  const { document } = new JSDOM(issueHtml).window;
+  // hacky alternative :)
+  const startDate = new Date("June 2020");
+  const currentDate = new Date();
+  const numIssues = getMonthDiff(startDate, currentDate);
+  let issueArr = [...Array(numIssues)].map((_, i) => {
+    const issueNo = numIssues - i;
+    const localIssueUrl = `${issueUrl}/issue-${issueNo}`;
+    return localIssueUrl;
+  });
 
   // restrict the number of issues due to api overload
   const MAX_NUM_ISSUES = 10;
+  issueArr = issueArr.slice(0, MAX_NUM_ISSUES);
 
-  let issueHtmlArr = Array.from(
-    document.querySelectorAll(".entry-content figure")
-  ).slice(0, MAX_NUM_ISSUES);
-
-  const promisedIssues: Promise<string>[] = [];
-
-  issueHtmlArr.forEach((issue: Element) => {
-    const issueAnchor = issue.querySelector("a");
-    if (issueAnchor) {
-      let hrefAttr = issueAnchor.attributes.getNamedItem("href");
-      if (hrefAttr) {
-        const href = hrefAttr.value;
-        // fetch each issue simultaneously
-        let issuePromise = new Promise<string>(async (resolve, reject) => {
-          let issueHtml = "";
-          try {
-            const res = await fetch(href, {});
-            issueHtml = await res.text();
-            resolve(issueHtml);
-          } catch (e) {
-            reject(e);
-          }
-        });
-
-        promisedIssues.push(issuePromise);
+  const promisedIssues: Promise<string>[] = issueArr.map((href) => {
+    return new Promise<string>(async (resolve, reject) => {
+      try {
+        const res = await fetch(href, {});
+        let issueHtml = await res.text();
+        resolve(issueHtml);
+      } catch (e) {
+        reject(e);
       }
-    }
+    });
   });
 
   const promisedArticles: Promise<string>[] = [];
@@ -131,7 +104,6 @@ export const handler: Handler = async () => {
                   const res = await fetch(href, {});
                   articleHtml = await res.text();
                   resolve(articleHtml);
-                  // resolve(`article is from ${href}!`);
                 } catch (e) {
                   reject(e);
                 }
