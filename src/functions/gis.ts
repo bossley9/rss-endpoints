@@ -37,7 +37,7 @@ export const handler: Handler = async () => {
   });
 
   // restrict the number of issues due to api overload
-  const MAX_NUM_ISSUES = 10;
+  const MAX_NUM_ISSUES = 5;
   issueArr = issueArr.slice(0, MAX_NUM_ISSUES);
 
   const promisedIssues: Promise<string>[] = issueArr.map((href) => {
